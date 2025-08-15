@@ -4,51 +4,83 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>カードゲームプロトタイプ (UI改善版)</title>
+
+    <!-- Tailwind をCDNで読み込み（ユーティリティクラス用） -->
     <script src="https://cdn.tailwindcss.com"></script>
+
     <style>
+        /* Google Fonts の読み込み */
         @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap');
 
+        /* --------- 基本スタイル（全体） --------- */
         body {
             font-family: 'M PLUS Rounded 1c', sans-serif;
-            background-color: #1a202c;
-            color: #e2e8f0;
-            user-select: none;
+            background-color: #1a202c; /* ダーク背景 */
+            color: #e2e8f0;            /* 文字色（薄いグレー） */
+            user-select: none;         /* テキスト選択禁止（ドラッグ誤操作防止） */
         }
 
+        /* --------- 盤面レイアウト --------- */
         .game-container { display: flex; flex-direction: column; align-items: center; width: 100%; padding: 1rem; }
-        .game-board { display: grid; grid-template-rows: 1fr 1fr; width: 100%; max-width: 1200px; height: 85vh; gap: 1rem; border: 2px solid #4a5568; border-radius: 1rem; background-color: #2d3748; position: relative; }
+        .game-board {
+            /* 上段：相手、下段：自分 の2行グリッド */
+            display: grid; grid-template-rows: 1fr 1fr;
+            width: 100%; max-width: 1200px; height: 85vh; gap: 1rem;
+            border: 2px solid #4a5568; border-radius: 1rem;
+            background-color: #2d3748; position: relative;
+        }
         .player-area { border: 2px dashed #4a5568; border-radius: 0.75rem; padding: 1rem; position: relative; display: flex; flex-direction: column; transition: all 0.3s ease; }
+
+        /* 現在の手番のプレイヤーに光る枠を付ける */
         .player-area.active-player {
             border-color: #63b3ed;
             box-shadow: 0 0 20px rgba(99, 179, 237, 0.5);
         }
+
+        /* 各プレイヤー内のゾーン配置（上：バトル＋ベンチ、下：手札） */
         .main-area { display: flex; height: 60%; border-bottom: 2px dashed #4a5568; }
         .battle-zone { width: 30%; display: flex; justify-content: center; align-items: center; }
         .bench-zone { width: 70%; display: flex; justify-content: center; align-items: center; gap: 0.5rem; padding: 0.5rem; border-left: 2px dashed #4a5568; }
         .hand-zone { height: 40%; display: flex; justify-content: center; align-items: flex-end; padding-bottom: 1rem; }
-        
+
+        /* 山札・トラッシュ・サイドなどのサブUI（右下にまとめ） */
         .side-area { position: absolute; bottom: 1rem; right: 1rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
         .prize-area { width: 80px; text-align: center; font-weight: bold; background-color: rgba(0,0,0,0.3); border-radius: 0.5rem; padding: 0.25rem; }
-        .deck-zone, .discard-pile { width: 80px; height: 112px; border: 2px solid #a0aec0; border-radius: 0.5rem; display: flex; justify-content: center; align-items: center; flex-direction: column; transition: all 0.2s ease; font-size: 0.8rem; text-align: center; }
+        .deck-zone, .discard-pile {
+            width: 80px; height: 112px; border: 2px solid #a0aec0; border-radius: 0.5rem;
+            display: flex; justify-content: center; align-items: center; flex-direction: column;
+            transition: all 0.2s ease; font-size: 0.8rem; text-align: center;
+        }
         .deck-zone { background-color: #4a5568; cursor: pointer; }
         .discard-pile { background-color: #2d3748; }
         .deck-zone:hover { transform: scale(1.05); border-color: #cbd5e0; }
-        
-        .card { width: 80px; height: 112px; border-radius: 0.5rem; padding: 0.4rem; cursor: pointer; transition: all 0.3s ease; display: flex; flex-direction: column; justify-content: space-between; border: 2px solid #a0aec0; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); position: relative; flex-shrink: 0; font-weight: bold; }
+
+        /* --------- カード見た目 --------- */
+        .card {
+            width: 80px; height: 112px; border-radius: 0.5rem; padding: 0.4rem; cursor: pointer;
+            transition: all 0.3s ease; display: flex; flex-direction: column; justify-content: space-between;
+            border: 2px solid #a0aec0; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); position: relative; flex-shrink: 0; font-weight: bold;
+        }
+        /* カード種別別の色 */
         .card.pokemon-card { background-color: #e2e8f0; color: #1a202c; }
-        .card.goods-card { background-color: #38a169; color: white; border-color: #9ae6b4; }
+        .card.goods-card   { background-color: #38a169; color: white; border-color: #9ae6b4; }
         .card.support-card { background-color: #3182ce; color: white; border-color: #90cdf4; }
 
+        /* 手札の重なりとホバー効果（ふわっと持ち上がる） */
         .hand-zone .card { margin: 0 -10px; }
         .hand-zone .card:hover { transform: translateY(-20px) scale(1.1); z-index: 10; }
-        
+
+        /* カード内部の要素 */
         .card-name { font-size: 0.7rem; text-align: center; }
         .card-img { width: 100%; height: 40px; background-color: rgba(255,255,255,0.2); border-radius: 0.25rem; display: flex; justify-content: center; align-items: center; font-size: 1.5rem; }
         .pokemon-card .card-img { background-color: #cbd5e0; }
         .card-stats { display: flex; justify-content: space-around; font-size: 0.6rem; }
         .card-desc { font-size: 0.6rem; font-weight: normal; text-align: center; flex-grow: 1; display: flex; align-items: center; justify-content: center; }
-        
+
+        /* 現在HPのバッジ（右上の丸） */
         .current-hp { position: absolute; top: -8px; right: -8px; background-color: #c53030; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; justify-content: center; align-items: center; font-size: 0.6rem; font-weight: bold; border: 2px solid white; }
+
+        /* バトル場用にカードを少し大きく見せる */
         .battle-card { cursor: default; width: 100px; height: 140px; }
         .battle-card .card-name { font-size: 0.8rem; }
         .battle-card .card-img { height: 60px; font-size: 2rem; }
@@ -56,23 +88,26 @@
         .battle-card .current-hp { width: 30px; height: 30px; font-size: 0.7rem; top: -10px; right: -10px;}
         .battle-card:hover { transform: scale(1.1); }
 
+        /* 相手側の手札やベンチは伏せた見た目（情報隠し） */
         #opponent-hand .card, #opponent-bench .card { background-color: #4a5568; color: transparent; border-color: #718096; }
         #opponent-deck { background-color: #718096; }
 
+        /* --------- 画面下の操作ボタン --------- */
         .game-controls { display: flex; gap: 1rem; margin-top: 1rem; }
         .control-button { padding: 0.75rem 1.5rem; font-size: 1rem; background-color: #4299e1; color: white; border: none; border-radius: 0.5rem; cursor: pointer; transition: background-color 0.2s; }
         .control-button:hover:not(:disabled) { background-color: #3182ce; }
         .control-button:disabled { background-color: #a0aec0; cursor: not-allowed; }
-        
+
+        /* --------- モーダル（開始／準備／昇格／勝敗／ターン表示） --------- */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; z-index: 50; }
         .modal-content { background-color: #2d3748; padding: 2rem; border-radius: 1rem; text-align: center; border: 2px solid #4a5568; max-width: 90%; }
         .modal-content h2 { font-size: 1.5rem; margin-bottom: 1rem; }
         .modal-content p { margin-bottom: 1.5rem; }
-        
         #turn-announcement-modal { pointer-events: none; background-color: transparent; }
         #turn-announcement-text { text-shadow: 2px 2px 8px #000; animation: fadeInOut 2s forwards; }
         @keyframes fadeInOut { 0% { opacity: 0; transform: scale(0.8); } 25% { opacity: 1; transform: scale(1); } 75% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.2); } }
 
+        /* 準備フェーズ（配置UI） */
         #promotion-options, #setup-bench-slots { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
         .game-info { width: 100%; max-width: 1200px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
         #turn-indicator { font-size: 1.5rem; font-weight: bold; }
@@ -88,107 +123,264 @@
 </head>
 <body>
     <div class="game-container">
-        <!-- Modals -->
-        <div id="start-game-modal" class="modal-overlay"><div class="modal-content"><button id="start-game-button" class="control-button" style="font-size: 1.5rem; padding: 1.5rem 3rem;">ゲーム開始</button></div></div>
-        <div id="setup-modal" class="modal-overlay hidden"><div class="modal-content"><h2>対戦準備</h2><p>手札からバトル場に1体、ベンチに5体までポケモンを配置してください。</p><div class="setup-area"><h3>バトル場</h3><div class="setup-slots"><div id="setup-battle-slot" class="setup-slot battle"></div></div></div><div class="setup-area"><h3>ベンチ</h3><div id="setup-bench-slots" class="setup-slots"></div></div><div id="setup-hand-zone" class="hand-zone"></div><button id="finish-setup-button" class="control-button" disabled>準備完了</button></div></div>
-        <div id="promotion-modal" class="modal-overlay hidden"><div class="modal-content"><h2>バトルポケモンがきぜつしました！</h2><p>ベンチから新しいバトルポケモンを選んでください。</p><div id="promotion-options"></div></div></div>
-        <div id="game-over-modal" class="modal-overlay hidden"><div class="modal-content"><h2 id="game-over-message"></h2><button id="play-again-button" class="control-button">もう一度遊ぶ</button></div></div>
-        <div id="turn-announcement-modal" class="modal-overlay hidden"><div class="modal-content bg-transparent text-white text-6xl font-bold"><h2 id="turn-announcement-text"></h2></div></div>
-
-        <!-- Game UI -->
-        <div class="game-info hidden" id="game-info-area"><div id="turn-indicator"></div><div id="log"></div></div>
-        <div class="game-board hidden" id="game-board-area">
-            <!-- Opponent's Area -->
-            <div class="player-area" id="opponent-area"><div class="main-area"><div class="battle-zone" id="opponent-battle-zone"></div><div class="bench-zone" id="opponent-bench"></div></div><div class="hand-zone" id="opponent-hand"></div><div class="side-area"><div class="prize-area" id="opponent-prize-area">サイド: 0/3</div><div class="discard-pile" id="opponent-discard-pile"><span>トラッシュ</span><span id="opponent-discard-count">0</span></div><div class="deck-zone" id="opponent-deck"><span>山札</span><span id="opponent-deck-count"></span></div></div></div>
-            <!-- Player's Area -->
-            <div class="player-area" id="player-area"><div class="main-area"><div class="battle-zone" id="player-battle-zone"></div><div class="bench-zone" id="player-bench"></div></div><div class="hand-zone" id="player-hand"></div><div class="side-area"><div class="prize-area" id="player-prize-area">サイド: 0/3</div><div class="discard-pile" id="player-discard-pile"><span>トラッシュ</span><span id="player-discard-count">0</span></div><div class="deck-zone" id="player-deck"><span>山札</span><span id="player-deck-count"></span></div></div></div>
+        <!-- ========== モーダル群（開始／準備／昇格／ゲーム終了／ターンアナウンス） ========== -->
+        <div id="start-game-modal" class="modal-overlay">
+            <div class="modal-content">
+                <button id="start-game-button" class="control-button" style="font-size: 1.5rem; padding: 1.5rem 3rem;">ゲーム開始</button>
+            </div>
         </div>
-        <div class="game-controls hidden" id="game-controls-area"><button id="end-turn-button" class="control-button">ターン終了</button></div>
+
+        <!-- 対戦準備（手札からバトル1体＋ベンチ最大5体を置く） -->
+        <div id="setup-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <h2>対戦準備</h2>
+                <p>手札からバトル場に1体、ベンチに5体までポケモンを配置してください。</p>
+                <div class="setup-area">
+                    <h3>バトル場</h3>
+                    <div class="setup-slots"><div id="setup-battle-slot" class="setup-slot battle"></div></div>
+                </div>
+                <div class="setup-area">
+                    <h3>ベンチ</h3>
+                    <div id="setup-bench-slots" class="setup-slots"></div>
+                </div>
+                <div id="setup-hand-zone" class="hand-zone"></div>
+                <button id="finish-setup-button" class="control-button" disabled>準備完了</button>
+            </div>
+        </div>
+
+        <!-- きぜつ後のバトル昇格選択 -->
+        <div id="promotion-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <h2>バトルポケモンがきぜつしました！</h2>
+                <p>ベンチから新しいバトルポケモンを選んでください。</p>
+                <div id="promotion-options"></div>
+            </div>
+        </div>
+
+        <!-- ゲーム終了表示 -->
+        <div id="game-over-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <h2 id="game-over-message"></h2>
+                <button id="play-again-button" class="control-button">もう一度遊ぶ</button>
+            </div>
+        </div>
+
+        <!-- ターンの大型アナウンス（フェードインアウト） -->
+        <div id="turn-announcement-modal" class="modal-overlay hidden">
+            <div class="modal-content bg-transparent text-white text-6xl font-bold">
+                <h2 id="turn-announcement-text"></h2>
+            </div>
+        </div>
+
+        <!-- ========== メインUI（ターン表示／ログ／盤面／操作ボタン） ========== -->
+        <div class="game-info hidden" id="game-info-area">
+            <div id="turn-indicator"></div>
+            <div id="log"></div>
+        </div>
+
+        <div class="game-board hidden" id="game-board-area">
+            <!-- 相手領域：バトル・ベンチ・手札・サイド/山札/トラッシュ -->
+            <div class="player-area" id="opponent-area">
+                <div class="main-area">
+                    <div class="battle-zone" id="opponent-battle-zone"></div>
+                    <div class="bench-zone" id="opponent-bench"></div>
+                </div>
+                <div class="hand-zone" id="opponent-hand"></div>
+                <div class="side-area">
+                    <div class="prize-area" id="opponent-prize-area">サイド: 0/3</div>
+                    <div class="discard-pile" id="opponent-discard-pile"><span>トラッシュ</span><span id="opponent-discard-count">0</span></div>
+                    <div class="deck-zone" id="opponent-deck"><span>山札</span><span id="opponent-deck-count"></span></div>
+                </div>
+            </div>
+
+            <!-- 自分領域 -->
+            <div class="player-area" id="player-area">
+                <div class="main-area">
+                    <div class="battle-zone" id="player-battle-zone"></div>
+                    <div class="bench-zone" id="player-bench"></div>
+                </div>
+                <div class="hand-zone" id="player-hand"></div>
+                <div class="side-area">
+                    <div class="prize-area" id="player-prize-area">サイド: 0/3</div>
+                    <div class="discard-pile" id="player-discard-pile"><span>トラッシュ</span><span id="player-discard-count">0</span></div>
+                    <div class="deck-zone" id="player-deck"><span>山札</span><span id="player-deck-count"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-controls hidden" id="game-controls-area">
+            <button id="end-turn-button" class="control-button">ターン終了</button>
+        </div>
     </div>
 
     <script>
-        // --- DATA & STATE ---
-        const cardDatabase = [
-            { cardType: 'pokemon', id: 1, name: "リザードン", hp: 150, attack: 100, speed: 60, emoji: "🔥" }, { cardType: 'pokemon', id: 2, name: "カメックス", hp: 160, attack: 90, speed: 50, emoji: "💧" }, { cardType: 'pokemon', id: 3, name: "フシギバナ", hp: 170, attack: 80, speed: 40, emoji: "🌿" }, { cardType: 'pokemon', id: 4, name: "ピカチュウ", hp: 60, attack: 40, speed: 90, emoji: "⚡️" }, { cardType: 'pokemon', id: 5, name: "ミュウツー", hp: 180, attack: 120, speed: 40, emoji: "🔮" }, { cardType: 'pokemon', id: 6, name: "カビゴン", hp: 200, attack: 70, speed: 30, emoji: "😴" }, { cardType: 'pokemon', id: 7, name: "イーブイ", hp: 50, attack: 30, speed: 100, emoji: "🐾" }, { cardType: 'pokemon', id: 8, name: "ギャラドス", hp: 150, attack: 110, speed: 70, emoji: "🌊" },
-            { cardType: 'goods', id: 101, name: "キズぐすり", emoji: "🩹", desc: "自分のバトルポケモンのHPを「30」回復する。", effect: 'healActive30' },
-            { cardType: 'support', id: 201, name: "博士の研究", emoji: "👨‍🔬", desc: "自分の手札をすべてトラッシュし、山札を7枚引く。", effect: 'professorsResearch' },
-            { cardType: 'support', id: 202, name: "ジャッジマン", emoji: "⚖️", desc: "おたがいのプレイヤーは、それぞれ自分の手札をすべて山札にもどして切る。その後、山札を4枚引く。", effect: 'judgeman' }
-        ];
-        let playerDeck, opponentDeck, playerHand, opponentHand, playerBench, opponentBench, playerDiscard, opponentDiscard;
-        let playerBattleCard = null, opponentBattleCard = null;
-        let playerPrizes, opponentPrizes;
-        let currentTurn = 'player', playerHasPlayedSupport = false, isGameOver = false;
-        let selectedCardIndex = null;
+        // ==============================================================
+        //  データ定義＆ゲーム状態（State）
+        // ==============================================================
 
-        // --- DOM ELEMENTS ---
+        /* カード「データベース」：ここからデッキを組む */
+        const cardDatabase = [
+            // ポケモン（name, hp, attack, speed, emoji）
+            { cardType: 'pokemon', id: 1, name: "リザードン", hp: 150, attack: 100, speed: 60, emoji: "🔥" },
+            { cardType: 'pokemon', id: 2, name: "カメックス",   hp: 160, attack: 90,  speed: 50, emoji: "💧" },
+            { cardType: 'pokemon', id: 3, name: "フシギバナ",   hp: 170, attack: 80,  speed: 40, emoji: "🌿" },
+            { cardType: 'pokemon', id: 4, name: "ピカチュウ",   hp: 60,  attack: 40,  speed: 90, emoji: "⚡️" },
+            { cardType: 'pokemon', id: 5, name: "ミュウツー",   hp: 180, attack: 120, speed: 40, emoji: "🔮" },
+            { cardType: 'pokemon', id: 6, name: "カビゴン",     hp: 200, attack: 70,  speed: 30, emoji: "😴" },
+            { cardType: 'pokemon', id: 7, name: "イーブイ",     hp: 50,  attack: 30,  speed: 100,emoji: "🐾" },
+            { cardType: 'pokemon', id: 8, name: "ギャラドス",   hp: 150, attack: 110, speed: 70, emoji: "🌊" },
+
+            // グッズ（即時効果）
+            { cardType: 'goods', id: 101, name: "キズぐすり", emoji: "🩹", desc: "自分のバトルポケモンのHPを「30」回復する。", effect: 'healActive30' },
+
+            // サポート（ターンに1回の強力効果）
+            { cardType: 'support', id: 201, name: "博士の研究", emoji: "👨‍🔬", desc: "自分の手札をすべてトラッシュし、山札を7枚引く。", effect: 'professorsResearch' },
+            { cardType: 'support', id: 202, name: "ジャッジマン", emoji: "⚖️", desc: "おたがいの手札を山札に戻して切り直し、4枚引く。", effect: 'judgeman' }
+        ];
+
+        // 主要な状態変数（配列など）
+        let playerDeck, opponentDeck, playerHand, opponentHand, playerBench, opponentBench, playerDiscard, opponentDiscard;
+        let playerBattleCard = null, opponentBattleCard = null; // バトル場のカード
+        let playerPrizes, opponentPrizes;                        // サイド枚数（0からカウント）
+        let currentTurn = 'player', playerHasPlayedSupport = false, isGameOver = false;
+        let selectedCardIndex = null; // 準備フェーズで手札から選択中のカード位置
+
+        // ==============================================================
+        //  DOM参照（document.getElementByIdの集約）
+        // ==============================================================
+
         const dom = {
-            player: { area: document.getElementById('player-area'), hand: document.getElementById('player-hand'), battle: document.getElementById('player-battle-zone'), bench: document.getElementById('player-bench'), deckCount: document.getElementById('player-deck-count'), prize: document.getElementById('player-prize-area'), discardCount: document.getElementById('player-discard-count') },
-            opponent: { area: document.getElementById('opponent-area'), hand: document.getElementById('opponent-hand'), battle: document.getElementById('opponent-battle-zone'), bench: document.getElementById('opponent-bench'), deckCount: document.getElementById('opponent-deck-count'), prize: document.getElementById('opponent-prize-area'), discardCount: document.getElementById('opponent-discard-count') },
-            modals: { start: document.getElementById('start-game-modal'), setup: document.getElementById('setup-modal'), promotion: document.getElementById('promotion-modal'), gameOver: document.getElementById('game-over-modal'), turnAnnouncement: document.getElementById('turn-announcement-modal') },
-            setup: { hand: document.getElementById('setup-hand-zone'), battleSlot: document.getElementById('setup-battle-slot'), benchSlots: document.getElementById('setup-bench-slots'), finishButton: document.getElementById('finish-setup-button') },
-            controls: { endTurn: document.getElementById('end-turn-button'), startGame: document.getElementById('start-game-button'), playAgain: document.getElementById('play-again-button') },
-            info: { turn: document.getElementById('turn-indicator'), log: document.getElementById('log'), gameOverMsg: document.getElementById('game-over-message'), promotionOptions: document.getElementById('promotion-options'), turnAnnouncementText: document.getElementById('turn-announcement-text') },
-            containers: { info: document.getElementById('game-info-area'), board: document.getElementById('game-board-area'), controls: document.getElementById('game-controls-area') }
+            player: {
+                area: document.getElementById('player-area'),
+                hand: document.getElementById('player-hand'),
+                battle: document.getElementById('player-battle-zone'),
+                bench: document.getElementById('player-bench'),
+                deckCount: document.getElementById('player-deck-count'),
+                prize: document.getElementById('player-prize-area'),
+                discardCount: document.getElementById('player-discard-count')
+            },
+            opponent: {
+                area: document.getElementById('opponent-area'),
+                hand: document.getElementById('opponent-hand'),
+                battle: document.getElementById('opponent-battle-zone'),
+                bench: document.getElementById('opponent-bench'),
+                deckCount: document.getElementById('opponent-deck-count'),
+                prize: document.getElementById('opponent-prize-area'),
+                discardCount: document.getElementById('opponent-discard-count')
+            },
+            modals: {
+                start: document.getElementById('start-game-modal'),
+                setup: document.getElementById('setup-modal'),
+                promotion: document.getElementById('promotion-modal'),
+                gameOver: document.getElementById('game-over-modal'),
+                turnAnnouncement: document.getElementById('turn-announcement-modal')
+            },
+            setup: {
+                hand: document.getElementById('setup-hand-zone'),
+                battleSlot: document.getElementById('setup-battle-slot'),
+                benchSlots: document.getElementById('setup-bench-slots'),
+                finishButton: document.getElementById('finish-setup-button')
+            },
+            controls: {
+                endTurn: document.getElementById('end-turn-button'),
+                startGame: document.getElementById('start-game-button'),
+                playAgain: document.getElementById('play-again-button')
+            },
+            info: {
+                turn: document.getElementById('turn-indicator'),
+                log: document.getElementById('log'),
+                gameOverMsg: document.getElementById('game-over-message'),
+                promotionOptions: document.getElementById('promotion-options'),
+                turnAnnouncementText: document.getElementById('turn-announcement-text')
+            },
+            containers: {
+                info: document.getElementById('game-info-area'),
+                board: document.getElementById('game-board-area'),
+                controls: document.getElementById('game-controls-area')
+            }
         };
 
-        // --- GAME FLOW ---
+        // ==============================================================
+        //  ゲーム進行（ゲームフロー）
+        // ==============================================================
+
+        /* ゲーム全体の初期化 */
         function initializeGame() {
+            // 各配列を初期化
             [playerDeck, opponentDeck, playerHand, opponentHand, playerBench, opponentBench, playerDiscard, opponentDiscard] = [[], [], [], [], [], [], [], []];
             [playerBattleCard, opponentBattleCard, selectedCardIndex] = [null, null, null];
             [playerPrizes, opponentPrizes] = [0, 0];
             [currentTurn, playerHasPlayedSupport, isGameOver] = ['player', false, false];
-            dom.info.log.innerHTML = '';
-            Object.values(dom.modals).forEach(m => m.classList.add('hidden'));
-            dom.modals.start.classList.remove('hidden');
 
+            dom.info.log.innerHTML = ''; // ログをクリア
+            Object.values(dom.modals).forEach(m => m.classList.add('hidden'));
+            dom.modals.start.classList.remove('hidden'); // 開始モーダルを一瞬表示（次ですぐ隠す）
+
+            // デッキ生成＆シャッフル（相手も同じ構成）
             playerDeck = createDeck();
             opponentDeck = createDeck();
             shuffleDeck(playerDeck);
             shuffleDeck(opponentDeck);
-            
+
+            // 7枚ドローして初期手札を作る
             for (let i = 0; i < 7; i++) { drawCard('player'); drawCard('opponent'); }
-            
+
+            // 開始モーダルを閉じ、準備フェーズへ
             dom.modals.start.classList.add('hidden');
             startSetupPhase();
         }
-        
-        function startSetupPhase() { opponentSetup(); renderSetupModal(); dom.modals.setup.classList.remove('hidden'); }
+
+        /* 準備フェーズ開始（相手は自動配置→自分はモーダルで配置） */
+        function startSetupPhase() {
+            opponentSetup();          // 相手の初期配置（AI）
+            renderSetupModal();       // 自分の配置UIを描画
+            dom.modals.setup.classList.remove('hidden');
+        }
+
+        /* 準備完了ボタン */
         function finishSetup() {
             if (!playerBattleCard) { addLog("バトル場にポケモンを置いてください。"); return; }
             dom.modals.setup.classList.add('hidden');
+
+            // メインUIの表示を開始
             Object.values(dom.containers).forEach(c => c.classList.remove('hidden'));
             addLog("対戦開始！");
-            startPlayerTurn(false);
+            startPlayerTurn(false); // 先手開始（最初はドローしない）
         }
 
+        /* 自分ターン開始 */
         async function startPlayerTurn(shouldDraw = true) {
             if (isGameOver) return;
             currentTurn = 'player';
-            playerHasPlayedSupport = false;
+            playerHasPlayedSupport = false; // サポートはターンに1回のためリセット
             dom.controls.endTurn.disabled = false;
             dom.player.area.classList.add('active-player');
             dom.opponent.area.classList.remove('active-player');
-            
+
             await showTurnAnnouncement("あなたのターン");
 
             if (shouldDraw) {
-                drawCard('player');
-                if (isGameOver) return;
+                drawCard('player'); // ターンの最初に1枚ドロー
+                if (isGameOver) return; // デッキ切れ敗北対策
                 addLog("あなたのターン。山札からカードを1枚引いた。");
-            } else { addLog("あなたのターンです。"); }
+            } else {
+                addLog("あなたのターンです。");
+            }
             updateAllUI();
         }
-        
+
+        /* ターン終了 → バトルフェーズ（先手の攻撃処理）→ 相手ターン */
         async function endTurn() {
             if (isGameOver || currentTurn !== 'player') return;
             dom.controls.endTurn.disabled = true;
             addLog("--- バトルフェーズ開始 ---");
-            await executeBattlePhase();
+            await executeBattlePhase(); // 先攻後攻を決めて攻撃を実施
             if (!isGameOver) {
                 opponentTurn();
             }
         }
 
+        /* 相手ターン開始（簡易AI） */
         async function opponentTurn() {
             if (isGameOver) return;
             currentTurn = 'opponent';
@@ -199,23 +391,28 @@
 
             addLog("相手のターンです。");
             await new Promise(r => setTimeout(r, 500));
-            drawCard('opponent');
+            drawCard('opponent'); // 相手も1枚ドロー
             if (isGameOver) return;
             addLog("相手は山札からカードを1枚引いた。");
             updateAllUI();
+
+            // 盤面展開やサポート使用などの簡易AI
             await opponentActions();
+
             if (!isGameOver) {
                 addLog("--- バトルフェーズ開始 ---");
                 await executeBattlePhase();
             }
             if (!isGameOver) {
-                startPlayerTurn();
+                startPlayerTurn(); // 自分の次ターンへ
             }
         }
 
+        /* 相手の簡易AIロジック（展開→支援→回復） */
         async function opponentActions() {
             const delay = () => new Promise(r => setTimeout(r, 800));
-            // AI logic... (same as before)
+
+            // ベンチが空いていて手札にポケモンがあれば優先配置
             while (opponentHand.some(c => c.cardType === 'pokemon') && opponentBench.length < 5) {
                 const pokemonToBenchIndex = opponentHand.findIndex(c => c.cardType === 'pokemon');
                 const card = opponentHand[pokemonToBenchIndex];
@@ -224,6 +421,8 @@
                 updateAllUI();
                 await delay();
             }
+
+            // サポートの使用条件（手札が少ないとき博士、手札差があるときジャッジマン）
             const supportInHand = opponentHand.find(c => c.cardType === 'support');
             if (supportInHand) {
                 let useSupport = false;
@@ -237,6 +436,8 @@
                     await delay();
                 }
             }
+
+            // 回復グッズ：次の相手攻撃で倒されそうなら使う
             const potionInHand = opponentHand.find(c => c.effect === 'healActive30');
             if (potionInHand && opponentBattleCard && opponentBattleCard.currentHp < opponentBattleCard.hp) {
                 const canBeKOd = playerBattleCard ? playerBattleCard.attack >= opponentBattleCard.currentHp : false;
@@ -250,6 +451,7 @@
             }
         }
 
+        /* バトルフェーズ（素早さ比較→先攻/後攻→連続攻撃） */
         async function executeBattlePhase() {
             if (!playerBattleCard || !opponentBattleCard) return;
 
@@ -257,80 +459,94 @@
             const opponentSpeed = opponentBattleCard.speed;
             let firstAttacker, secondAttacker;
 
+            // 素早さで先攻決定。同値ならコイントス
             if (playerSpeed > opponentSpeed) {
-                firstAttacker = 'player';
-                secondAttacker = 'opponent';
+                firstAttacker = 'player';   secondAttacker = 'opponent';
                 addLog(`${playerBattleCard.name}の素早さが高い！先に攻撃！`);
             } else if (opponentSpeed > playerSpeed) {
-                firstAttacker = 'opponent';
-                secondAttacker = 'player';
+                firstAttacker = 'opponent'; secondAttacker = 'player';
                 addLog(`${opponentBattleCard.name}の素早さが高い！先に攻撃！`);
             } else {
                 addLog("素早さが同じ！コイントス...");
                 await new Promise(r => setTimeout(r, 500));
                 if (Math.random() < 0.5) {
-                    firstAttacker = 'player';
-                    secondAttacker = 'opponent';
-                    addLog("結果はオモテ！あなたが先攻！");
+                    firstAttacker = 'player';   secondAttacker = 'opponent'; addLog("結果はオモテ！あなたが先攻！");
                 } else {
-                    firstAttacker = 'opponent';
-                    secondAttacker = 'player';
-                    addLog("結果はウラ！相手が先攻！");
+                    firstAttacker = 'opponent'; secondAttacker = 'player';   addLog("結果はウラ！相手が先攻！");
                 }
             }
-            
+
+            // 先攻の攻撃
             await new Promise(r => setTimeout(r, 1000));
             await performAttack(firstAttacker, secondAttacker);
-            if (isGameOver || !playerBattleCard || !opponentBattleCard) return;
+            if (isGameOver || !playerBattleCard || !opponentBattleCard) return; // きぜつで終了の可能性
 
+            // 後攻の攻撃
             await new Promise(r => setTimeout(r, 1500));
             await performAttack(secondAttacker, firstAttacker);
         }
 
+        /* 単発攻撃処理（ダメージ→UI更新→きぜつ判定） */
         async function performAttack(attackerType, defenderType) {
             if (isGameOver || !playerBattleCard || !opponentBattleCard) return;
             const attacker = attackerType === 'player' ? playerBattleCard : opponentBattleCard;
             const defender = defenderType === 'player' ? playerBattleCard : opponentBattleCard;
-            
+
             addLog(`${attackerType === 'player' ? 'あなた' : '相手'}の ${attacker.name} の攻撃！`);
             await new Promise(r => setTimeout(r, 500));
-            defender.currentHp -= attacker.attack;
+
+            defender.currentHp -= attacker.attack; // シンプルにATKぶん減らす
             addLog(`${defender.name} に ${attacker.attack} のダメージ！`);
             updateAllUI();
+
             await new Promise(r => setTimeout(r, 500));
             await checkKnockout(defenderType);
         }
 
+        /* きぜつ処理（サイド進行→昇格選択→勝敗判定） */
         async function checkKnockout(knockedOutPlayer) {
             if (isGameOver) return;
             const isPlayerKnockedOut = knockedOutPlayer === 'player';
             let targetCard = isPlayerKnockedOut ? playerBattleCard : opponentBattleCard;
-            
+
             if (targetCard && targetCard.currentHp <= 0) {
                 addLog(`${targetCard.name} はきぜつした！`);
                 (isPlayerKnockedOut ? playerDiscard : opponentDiscard).push(targetCard);
-                if (isPlayerKnockedOut) { opponentPrizes++; addLog(`相手はサイドを1枚取った。(残り ${3 - opponentPrizes}枚)`); } 
-                else { playerPrizes++; addLog(`あなたはサイドを1枚取った。(残り ${3 - playerPrizes}枚)`); }
+
+                // サイド進行（先に3枚取ったほうが勝ち）
+                if (isPlayerKnockedOut) {
+                    opponentPrizes++; addLog(`相手はサイドを1枚取った。(残り ${3 - opponentPrizes}枚)`);
+                } else {
+                    playerPrizes++;  addLog(`あなたはサイドを1枚取った。(残り ${3 - playerPrizes}枚)`);
+                }
                 updateAllUI();
-                
-                if (playerPrizes >= 3) { endGame('player', 'サイドを3枚取りました。'); return; }
+
+                // サイド枚数で勝敗
+                if (playerPrizes >= 3)   { endGame('player',   'サイドを3枚取りました。');   return; }
                 if (opponentPrizes >= 3) { endGame('opponent', 'サイドを3枚取りました。'); return; }
 
+                // バトル場空き→ベンチから昇格（相手は自動）
                 if (isPlayerKnockedOut) playerBattleCard = null; else opponentBattleCard = null;
                 const bench = isPlayerKnockedOut ? playerBench : opponentBench;
+
                 if (bench.length > 0) {
                     if (isPlayerKnockedOut) {
+                        // 自分は選択モーダルを開く
                         promptPromotion();
                     } else {
                         addLog("相手は新しいポケモンを出すようだ...");
                         await new Promise(r => setTimeout(r, 1500));
-                        promoteToBattle(null, 'opponent');
+                        promoteToBattle(null, 'opponent'); // 相手はHPの高い順で自動選択
                         updateAllUI();
                     }
-                } else { endGame(isPlayerKnockedOut ? 'opponent' : 'player', `場のポケモンがいなくなりました。`); }
+                } else {
+                    // ベンチがない場合は場が空→負け
+                    endGame(isPlayerKnockedOut ? 'opponent' : 'player', `場のポケモンがいなくなりました。`);
+                }
             }
         }
-        
+
+        /* 勝敗確定処理（モーダル表示） */
         function endGame(winner, reason) {
             if (isGameOver) return;
             isGameOver = true;
@@ -339,38 +555,371 @@
             dom.containers.controls.classList.add('hidden');
         }
 
-        // --- CARD ACTIONS ---
-        function createDeck() { const p = cardDatabase.filter(c => c.cardType === 'pokemon'); const g = cardDatabase.filter(c => c.cardType === 'goods'); const s = cardDatabase.filter(c => c.cardType === 'support'); let deck = []; for (let i = 0; i < 3; i++) deck.push(...p); deck.push(...g, ...g); deck.push(...s, ...s); return deck; }
-        function shuffleDeck(deck) { for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; } }
-        function drawCard(playerType) { if (isGameOver) return; const isPlayer = playerType === 'player'; const deck = isPlayer ? playerDeck : opponentDeck; if (deck.length === 0) { endGame(isPlayer ? 'opponent' : 'player', '山札がなくなりました。'); return; } (isPlayer ? playerHand : opponentHand).push(deck.pop()); }
-        function playCardFromHand(handIndex) { if (currentTurn !== 'player' || isGameOver) return; const card = playerHand[handIndex]; switch(card.cardType) { case 'pokemon': if (!playerBattleCard) { playerBattleCard = { ...playerHand.splice(handIndex, 1)[0], currentHp: card.hp }; addLog(`${card.name}をバトル場に出した。`); } else if (playerBench.length < 5) { playerBench.push({ ...playerHand.splice(handIndex, 1)[0], currentHp: card.hp }); addLog(`${card.name}をベンチに出した。`); } else { addLog("ベンチがいっぱいです！"); return; } break; case 'goods': executeEffect(card, 'player'); playerDiscard.push(playerHand.splice(handIndex, 1)[0]); break; case 'support': if (playerHasPlayedSupport) { addLog("この番、すでにサポートを使っています。"); return; } playerHasPlayedSupport = true; executeEffect(card, 'player'); playerDiscard.push(playerHand.splice(handIndex, 1)[0]); break; } updateAllUI(); }
-        function executeEffect(card, playerType) { addLog(`${playerType === 'player' ? 'あなた' : '相手'}は「${card.name}」を使った！`); const isPlayer = playerType === 'player'; switch(card.effect) { case 'healActive30': let target = isPlayer ? playerBattleCard : opponentBattleCard; if (target) { target.currentHp = Math.min(target.hp, target.currentHp + 30); } break; case 'professorsResearch': const handToDiscard = isPlayer ? playerHand : opponentHand; const discardPile = isPlayer ? playerDiscard : opponentDiscard; while(handToDiscard.length > 0) discardPile.push(handToDiscard.pop()); for (let i = 0; i < 7; i++) drawCard(playerType); break; case 'judgeman': [playerHand, opponentHand].forEach((h, i) => { const d = i === 0 ? playerDeck : opponentDeck; while(h.length > 0) d.push(h.pop()); shuffleDeck(d); }); for (let j = 0; j < 4; j++) drawCard('player'); for (let j = 0; j < 4; j++) drawCard('opponent'); break; } }
-        function promptPromotion() { dom.info.promotionOptions.innerHTML = ''; playerBench.forEach((card, index) => { const el = createCardElement(card, 'player', true); el.addEventListener('click', () => { promoteToBattle(index, 'player'); dom.modals.promotion.classList.add('hidden'); }); dom.info.promotionOptions.appendChild(el); }); dom.modals.promotion.classList.remove('hidden'); }
-        function promoteToBattle(index, playerType, fromHand = false) { const isPlayer = playerType === 'player'; let source = fromHand ? (isPlayer ? playerHand : opponentHand) : (isPlayer ? playerBench : opponentBench); if (source.length === 0) return; let cardToMove; if (isPlayer || fromHand) { cardToMove = source.splice(index, 1)[0]; } else { source.sort((a, b) => b.hp - a.hp); cardToMove = source.shift(); } const newBattleCard = { ...cardToMove, currentHp: cardToMove.hp }; if (isPlayer) playerBattleCard = newBattleCard; else opponentBattleCard = newBattleCard; addLog(`${newBattleCard.name}がバトル場へ！`); }
-        
-        // --- SETUP PHASE ---
-        function opponentSetup() { const pokemonInHand = opponentHand.filter(c => c.cardType === 'pokemon'); if (pokemonInHand.length === 0) { addLog("相手の手札にポケモンがなく、マリガンします。"); while(opponentHand.length > 0) opponentDeck.push(opponentHand.pop()); shuffleDeck(opponentDeck); for (let i = 0; i < 7; i++) drawCard('opponent'); setTimeout(opponentSetup, 500); return; } pokemonInHand.sort((a, b) => b.hp - a.hp); const bestPokemon = pokemonInHand.shift(); const bestPokemonIndex = opponentHand.findIndex(c => c.id === bestPokemon.id && c.cardType === 'pokemon'); promoteToBattle(bestPokemonIndex, 'opponent', true); while (opponentHand.some(c => c.cardType === 'pokemon') && opponentBench.length < 5) { const pIndex = opponentHand.findIndex(c => c.cardType === 'pokemon'); const card = { ...opponentHand.splice(pIndex, 1)[0] }; card.currentHp = card.hp; opponentBench.push(card); } }
-        function renderSetupModal() { dom.setup.hand.innerHTML = ''; playerHand.forEach((card, index) => { const el = createCardElement(card, 'player'); if (selectedCardIndex === index) el.classList.add('selected'); el.addEventListener('click', () => { if(card.cardType === 'pokemon') { selectedCardIndex = index; renderSetupModal(); } else { addLog("準備中はポケモンしか場に出せません。")} }); dom.setup.hand.appendChild(el); }); dom.setup.battleSlot.innerHTML = ''; if (playerBattleCard) dom.setup.battleSlot.appendChild(createCardElement(playerBattleCard, 'player')); dom.setup.benchSlots.innerHTML = ''; for (let i=0; i<5; i++) { const slot = document.createElement('div'); slot.classList.add('setup-slot'); if (playerBench[i]) slot.appendChild(createCardElement(playerBench[i], 'player')); else slot.addEventListener('click', () => placeCardInSetup('bench', i)); dom.setup.benchSlots.appendChild(slot); } dom.setup.finishButton.disabled = !playerBattleCard; }
-        function placeCardInSetup(zone, index) { if (selectedCardIndex === null) return; const card = playerHand[selectedCardIndex]; if (card.cardType !== 'pokemon') return; playerHand.splice(selectedCardIndex, 1); card.currentHp = card.hp; if (zone === 'battle') { if (playerBattleCard) playerHand.push(playerBattleCard); playerBattleCard = card; } else { if (playerBench[index]) playerHand.push(playerBench[index]); playerBench[index] = card; } selectedCardIndex = null; renderSetupModal(); }
+        // ==============================================================
+        //  カード操作（デッキ構築／ドロー／プレイ／効果）
+        // ==============================================================
 
-        // --- UI RENDERING ---
-        function updateAllUI() { if (isGameOver) return; renderHand(playerHand, dom.player.hand, 'player'); renderHand(opponentHand, dom.opponent.hand, 'opponent'); renderBench(playerBench, dom.player.bench, 'player'); renderBench(opponentBench, dom.opponent.bench, 'opponent'); renderBattleZone(playerBattleCard, dom.player.battle, 'player'); renderBattleZone(opponentBattleCard, dom.opponent.battle, 'opponent'); updateDeckAndDiscardCounts(); updatePrizes(); dom.info.turn.textContent = currentTurn === 'player' ? 'あなたのターン' : '相手のターン'; dom.controls.endTurn.disabled = currentTurn !== 'player'; }
-        function renderHand(hand, zone, playerType) { zone.innerHTML = ''; hand.forEach((card, index) => { const el = createCardElement(card, playerType); if (playerType === 'player') el.addEventListener('click', () => playCardFromHand(index)); zone.appendChild(el); }); }
-        function renderBench(bench, zone, playerType) { zone.innerHTML = ''; for (let i = 0; i < 5; i++) { const p = document.createElement('div'); Object.assign(p.style, { width: '80px', height: '112px', border: '2px dashed #4a5568', borderRadius: '0.5rem', flexShrink: '0' }); if (bench[i]) zone.appendChild(createCardElement(bench[i], playerType, true)); else zone.appendChild(p); } }
-        function renderBattleZone(card, zone, playerType) { zone.innerHTML = ''; if (card) { const el = createCardElement(card, playerType, true); el.classList.add('battle-card'); zone.appendChild(el); } }
-        function createCardElement(data, playerType, showDetails = false) { const card = document.createElement('div'); card.classList.add('card', `${data.cardType}-card`); if (playerType === 'player' || showDetails) { let content = `<div class="card-name">${data.name}</div>`; if (data.cardType === 'pokemon') { content += `<div class="card-img">${data.emoji}</div><div class="card-stats"><span>HP:${data.hp}</span><span>ATK:${data.attack}</span><span>SPD:${data.speed}</span></div>${data.currentHp !== undefined ? `<div class="current-hp">${data.currentHp > 0 ? data.currentHp : 0}</div>` : ''}`; } else { content += `<div class="card-desc">${data.desc}</div>`; } card.innerHTML = content; } return card; }
-        function updateDeckAndDiscardCounts() { dom.player.deckCount.textContent = playerDeck.length; dom.opponent.deckCount.textContent = opponentDeck.length; dom.player.discardCount.textContent = playerDiscard.length; dom.opponent.discardCount.textContent = opponentDiscard.length; }
-        function updatePrizes() { dom.player.prize.textContent = `サイド: ${playerPrizes}/3`; dom.opponent.prize.textContent = `サイド: ${opponentPrizes}/3`; }
-        function addLog(message) { const p = document.createElement('p'); p.textContent = `> ${message}`; dom.info.log.insertBefore(p, dom.info.log.firstChild); }
-        async function showTurnAnnouncement(message) { dom.info.turnAnnouncementText.textContent = message; dom.modals.turnAnnouncement.classList.remove('hidden'); await new Promise(r => setTimeout(r, 2000)); dom.modals.turnAnnouncement.classList.add('hidden'); }
+        /* デッキを作る：ポケモン×3セット＋グッズ2枚＋サポート2枚 */
+        function createDeck() {
+            const p = cardDatabase.filter(c => c.cardType === 'pokemon');
+            const g = cardDatabase.filter(c => c.cardType === 'goods');
+            const s = cardDatabase.filter(c => c.cardType === 'support');
+            let deck = [];
+            for (let i = 0; i < 3; i++) deck.push(...p); // ポケモンは3巡（=各3枚相当）
+            deck.push(...g, ...g);
+            deck.push(...s, ...s);
+            return deck;
+        }
 
-        // --- EVENT LISTENERS ---
+        /* フィッシャー–イェーツ法でシャッフル */
+        function shuffleDeck(deck) {
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+        }
+
+        /* ドロー処理：山札が空なら敗北（TCG風のルール） */
+        function drawCard(playerType) {
+            if (isGameOver) return;
+            const isPlayer = playerType === 'player';
+            const deck = isPlayer ? playerDeck : opponentDeck;
+            if (deck.length === 0) {
+                endGame(isPlayer ? 'opponent' : 'player', '山札がなくなりました。');
+                return;
+            }
+            (isPlayer ? playerHand : opponentHand).push(deck.pop());
+        }
+
+        /* 手札からカードを出す（自分ターンのみ） */
+        function playCardFromHand(handIndex) {
+            if (currentTurn !== 'player' || isGameOver) return;
+            const card = playerHand[handIndex];
+
+            switch(card.cardType) {
+                case 'pokemon':
+                    if (!playerBattleCard) {
+                        // バトル場が空ならバトルに出す
+                        playerBattleCard = { ...playerHand.splice(handIndex, 1)[0], currentHp: card.hp };
+                        addLog(`${card.name}をバトル場に出した。`);
+                    } else if (playerBench.length < 5) {
+                        // それ以外はベンチへ
+                        playerBench.push({ ...playerHand.splice(handIndex, 1)[0], currentHp: card.hp });
+                        addLog(`${card.name}をベンチに出した。`);
+                    } else {
+                        addLog("ベンチがいっぱいです！");
+                        return;
+                    }
+                    break;
+
+                case 'goods':
+                    // グッズは即時効果→トラッシュ
+                    executeEffect(card, 'player');
+                    playerDiscard.push(playerHand.splice(handIndex, 1)[0]);
+                    break;
+
+                case 'support':
+                    // サポートは1ターンに1回のみ
+                    if (playerHasPlayedSupport) {
+                        addLog("この番、すでにサポートを使っています。");
+                        return;
+                    }
+                    playerHasPlayedSupport = true;
+                    executeEffect(card, 'player');
+                    playerDiscard.push(playerHand.splice(handIndex, 1)[0]);
+                    break;
+            }
+            updateAllUI();
+        }
+
+        /* 効果の実体（グッズ／サポート） */
+        function executeEffect(card, playerType) {
+            addLog(`${playerType === 'player' ? 'あなた' : '相手'}は「${card.name}」を使った！`);
+            const isPlayer = playerType === 'player';
+
+            switch(card.effect) {
+                case 'healActive30': {
+                    // バトル場の自分（or 相手）を30回復
+                    let target = isPlayer ? playerBattleCard : opponentBattleCard;
+                    if (target) { target.currentHp = Math.min(target.hp, target.currentHp + 30); }
+                    break;
+                }
+                case 'professorsResearch': {
+                    // 手札を全てトラッシュ→7枚ドロー
+                    const handToDiscard = isPlayer ? playerHand : opponentHand;
+                    const discardPile = isPlayer ? playerDiscard : opponentDiscard;
+                    while(handToDiscard.length > 0) discardPile.push(handToDiscard.pop());
+                    for (let i = 0; i < 7; i++) drawCard(playerType);
+                    break;
+                }
+                case 'judgeman': {
+                    // お互いの手札を山札に戻してシャッフル→各4枚ドロー
+                    [playerHand, opponentHand].forEach((h, i) => {
+                        const d = i === 0 ? playerDeck : opponentDeck;
+                        while(h.length > 0) d.push(h.pop());
+                        shuffleDeck(d);
+                    });
+                    for (let j = 0; j < 4; j++) drawCard('player');
+                    for (let j = 0; j < 4; j++) drawCard('opponent');
+                    break;
+                }
+            }
+        }
+
+        /* きぜつ時の自分の昇格選択（モーダルで選ぶ） */
+        function promptPromotion() {
+            dom.info.promotionOptions.innerHTML = '';
+            playerBench.forEach((card, index) => {
+                const el = createCardElement(card, 'player', true);
+                el.addEventListener('click', () => {
+                    promoteToBattle(index, 'player');
+                    dom.modals.promotion.classList.add('hidden');
+                });
+                dom.info.promotionOptions.appendChild(el);
+            });
+            dom.modals.promotion.classList.remove('hidden');
+        }
+
+        /* バトル場へ昇格（fromHand=trueで手札→バトル場、相手の初期配置で使用） */
+        function promoteToBattle(index, playerType, fromHand = false) {
+            const isPlayer = playerType === 'player';
+            let source = fromHand ? (isPlayer ? playerHand : opponentHand) : (isPlayer ? playerBench : opponentBench);
+            if (source.length === 0) return;
+
+            let cardToMove;
+            if (isPlayer || fromHand) {
+                // 自分は選択インデックス、相手はfromHand時のみインデックス
+                cardToMove = source.splice(index, 1)[0];
+            } else {
+                // 相手の自動昇格：HPが高い順に採用
+                source.sort((a, b) => b.hp - a.hp);
+                cardToMove = source.shift();
+            }
+
+            const newBattleCard = { ...cardToMove, currentHp: cardToMove.hp };
+            if (isPlayer) playerBattleCard = newBattleCard; else opponentBattleCard = newBattleCard;
+            addLog(`${newBattleCard.name}がバトル場へ！`);
+        }
+
+        // ==============================================================
+        //  準備フェーズ（初期配置UI）
+        // ==============================================================
+
+        /* 相手の初期配置：手札にポケモンがなければマリガン→最良HPをバトルへ→残りはベンチへ */
+        function opponentSetup() {
+            const pokemonInHand = opponentHand.filter(c => c.cardType === 'pokemon');
+
+            if (pokemonInHand.length === 0) {
+                // マリガン：手札を山札に戻してシャッフル→7枚引き直し
+                addLog("相手の手札にポケモンがなく、マリガンします。");
+                while(opponentHand.length > 0) opponentDeck.push(opponentHand.pop());
+                shuffleDeck(opponentDeck);
+                for (let i = 0; i < 7; i++) drawCard('opponent');
+                setTimeout(opponentSetup, 500);
+                return;
+            }
+
+            // 最もHPの高いポケモンをバトル場へ
+            pokemonInHand.sort((a, b) => b.hp - a.hp);
+            const bestPokemon = pokemonInHand.shift();
+            const bestPokemonIndex = opponentHand.findIndex(c => c.id === bestPokemon.id && c.cardType === 'pokemon');
+            promoteToBattle(bestPokemonIndex, 'opponent', true);
+
+            // 余ったポケモンをベンチへ
+            while (opponentHand.some(c => c.cardType === 'pokemon') && opponentBench.length < 5) {
+                const pIndex = opponentHand.findIndex(c => c.cardType === 'pokemon');
+                const card = { ...opponentHand.splice(pIndex, 1)[0] };
+                card.currentHp = card.hp;
+                opponentBench.push(card);
+            }
+        }
+
+        /* 準備フェーズのモーダルを描画（手札→バトル/ベンチの配置） */
+        function renderSetupModal() {
+            // 手札の表示（準備中はポケモンのみ選択可）
+            dom.setup.hand.innerHTML = '';
+            playerHand.forEach((card, index) => {
+                const el = createCardElement(card, 'player');
+                if (selectedCardIndex === index) el.classList.add('selected');
+                el.addEventListener('click', () => {
+                    if(card.cardType === 'pokemon') {
+                        selectedCardIndex = index; renderSetupModal();
+                    } else {
+                        addLog("準備中はポケモンしか場に出せません。")
+                    }
+                });
+                dom.setup.hand.appendChild(el);
+            });
+
+            // バトルスロット（1枠）
+            dom.setup.battleSlot.innerHTML = '';
+            if (playerBattleCard) dom.setup.battleSlot.appendChild(createCardElement(playerBattleCard, 'player'));
+
+            // ベンチスロット（5枠）
+            dom.setup.benchSlots.innerHTML = '';
+            for (let i=0; i<5; i++) {
+                const slot = document.createElement('div');
+                slot.classList.add('setup-slot');
+                if (playerBench[i]) {
+                    slot.appendChild(createCardElement(playerBench[i], 'player'));
+                } else {
+                    // 空き枠をクリックすると選択中の手札ポケモンが置かれる
+                    slot.addEventListener('click', () => placeCardInSetup('bench', i));
+                }
+                dom.setup.benchSlots.appendChild(slot);
+            }
+
+            // バトル場が埋まるまで「準備完了」は押せない
+            dom.setup.finishButton.disabled = !playerBattleCard;
+        }
+
+        /* 実際にカードを配置（バトル or ベンチ） */
+        function placeCardInSetup(zone, index) {
+            if (selectedCardIndex === null) return;
+            const card = playerHand[selectedCardIndex];
+            if (card.cardType !== 'pokemon') return;
+
+            // 手札から取り出し
+            playerHand.splice(selectedCardIndex, 1);
+            card.currentHp = card.hp;
+
+            if (zone === 'battle') {
+                // 既にバトル場にいたら手札に戻す（入れ替え）
+                if (playerBattleCard) playerHand.push(playerBattleCard);
+                playerBattleCard = card;
+            } else {
+                // ベンチに既に居たら入れ替え
+                if (playerBench[index]) playerHand.push(playerBench[index]);
+                playerBench[index] = card;
+            }
+            selectedCardIndex = null;
+            renderSetupModal();
+        }
+
+        // ==============================================================
+        //  UI描画（手札／ベンチ／バトル／カウント／ログ／ターン表示）
+        // ==============================================================
+
+        /* 盤面全体を再描画 */
+        function updateAllUI() {
+            if (isGameOver) return;
+
+            renderHand(playerHand, dom.player.hand, 'player');
+            renderHand(opponentHand, dom.opponent.hand, 'opponent');
+            renderBench(playerBench, dom.player.bench, 'player');
+            renderBench(opponentBench, dom.opponent.bench, 'opponent');
+            renderBattleZone(playerBattleCard, dom.player.battle, 'player');
+            renderBattleZone(opponentBattleCard, dom.opponent.battle, 'opponent');
+
+            updateDeckAndDiscardCounts();
+            updatePrizes();
+
+            dom.info.turn.textContent = currentTurn === 'player' ? 'あなたのターン' : '相手のターン';
+            dom.controls.endTurn.disabled = currentTurn !== 'player';
+        }
+
+        /* 手札表示（自分はクリックで出せる／相手は伏せ見た目） */
+        function renderHand(hand, zone, playerType) {
+            zone.innerHTML = '';
+            hand.forEach((card, index) => {
+                const el = createCardElement(card, playerType);
+                if (playerType === 'player') el.addEventListener('click', () => playCardFromHand(index));
+                zone.appendChild(el);
+            });
+        }
+
+        /* ベンチ表示（5枠固定。空きは点線枠） */
+        function renderBench(bench, zone, playerType) {
+            zone.innerHTML = '';
+            for (let i = 0; i < 5; i++) {
+                const p = document.createElement('div');
+                Object.assign(p.style, { width: '80px', height: '112px', border: '2px dashed #4a5568', borderRadius: '0.5rem', flexShrink: '0' });
+                if (bench[i]) zone.appendChild(createCardElement(bench[i], playerType, true));
+                else zone.appendChild(p);
+            }
+        }
+
+        /* バトル場表示（存在する場合のみカード描画） */
+        function renderBattleZone(card, zone, playerType) {
+            zone.innerHTML = '';
+            if (card) {
+                const el = createCardElement(card, playerType, true);
+                el.classList.add('battle-card');
+                zone.appendChild(el);
+            }
+        }
+
+        /* カードDOMを生成（自分 or 詳細表示時はステータスも表示） */
+        function createCardElement(data, playerType, showDetails = false) {
+            const card = document.createElement('div');
+            card.classList.add('card', `${data.cardType}-card`);
+
+            // 自分のカード or showDetails = true のときだけ中身を見せる
+            if (playerType === 'player' || showDetails) {
+                let content = `<div class="card-name">${data.name}</div>`;
+                if (data.cardType === 'pokemon') {
+                    content += `
+                        <div class="card-img">${data.emoji}</div>
+                        <div class="card-stats"><span>HP:${data.hp}</span><span>ATK:${data.attack}</span><span>SPD:${data.speed}</span></div>
+                        ${data.currentHp !== undefined ? `<div class="current-hp">${data.currentHp > 0 ? data.currentHp : 0}</div>` : ''}`;
+                } else {
+                    content += `<div class="card-desc">${data.desc}</div>`;
+                }
+                card.innerHTML = content;
+            }
+            return card;
+        }
+
+        /* 山札枚数・トラッシュ枚数の更新 */
+        function updateDeckAndDiscardCounts() {
+            dom.player.deckCount.textContent = playerDeck.length;
+            dom.opponent.deckCount.textContent = opponentDeck.length;
+            dom.player.discardCount.textContent = playerDiscard.length;
+            dom.opponent.discardCount.textContent = opponentDiscard.length;
+        }
+
+        /* サイドの表示を更新 */
+        function updatePrizes() {
+            dom.player.prize.textContent   = `サイド: ${playerPrizes}/3`;
+            dom.opponent.prize.textContent = `サイド: ${opponentPrizes}/3`;
+        }
+
+        /* ログに上から追記（最新が上） */
+        function addLog(message) {
+            const p = document.createElement('p');
+            p.textContent = `> ${message}`;
+            dom.info.log.insertBefore(p, dom.info.log.firstChild);
+        }
+
+        /* ターンアナウンス（2秒表示→自動で隠す） */
+        async function showTurnAnnouncement(message) {
+            dom.info.turnAnnouncementText.textContent = message;
+            dom.modals.turnAnnouncement.classList.remove('hidden');
+            await new Promise(r => setTimeout(r, 2000));
+            dom.modals.turnAnnouncement.classList.add('hidden');
+        }
+
+        // ==============================================================
+        //  イベントリスナー（UIボタンなど）
+        // ==============================================================
+
+        // 「ゲーム開始」→ initializeGame
         dom.controls.startGame.addEventListener('click', initializeGame);
-        dom.controls.playAgain.addEventListener('click', () => { dom.modals.gameOver.classList.add('hidden'); dom.modals.start.classList.remove('hidden'); });
+
+        // 「もう一度遊ぶ」→ 終了モーダル閉じて開始モーダルに戻す
+        dom.controls.playAgain.addEventListener('click', () => {
+            dom.modals.gameOver.classList.add('hidden');
+            dom.modals.start.classList.remove('hidden');
+        });
+
+        // 準備完了ボタン
         dom.setup.finishButton.addEventListener('click', finishSetup);
+
+        // バトルスロット（準備中にクリックでバトル配置）
         dom.setup.battleSlot.addEventListener('click', () => placeCardInSetup('battle'));
+
+        // 「ターン終了」ボタン
         dom.controls.endTurn.addEventListener('click', endTurn);
     </script>
 </body>
 </html>
-
